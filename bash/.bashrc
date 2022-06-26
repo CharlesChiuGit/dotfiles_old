@@ -116,6 +116,7 @@ if ! shopt -oq posix; then
   fi
 fi
 
+# Nvidia GPU config {{{
 ### Check nvidia gpu
 # Some distro requires that the absolute path is given when invoking lspci
 # e.g. /sbin/lspci if the user is not root.
@@ -136,10 +137,12 @@ if [ -d "${CUDA_PATH}" ] && [[ $gpu == *' nvidia '* ]]; then
   elif [ ! -d "${CUDA_PATH}" ] && [[ $gpu == *' nvidia '* ]]; then
     echo "You have nvgpu, but you don't have cuda installed!"
   elif ! [[ $gpu == *' nvidia '* ]]; then
-    echo "You don't have nvgpu loaded!"
+    : # return nothing
+    # echo "You don't have nvgpu or it's not loaded!"
 fi
+# }}}
 
-# download_from_gdrive <FILE_ID> <OUTPUT_FILENAME>
+# download_from_gdrive <FILE_ID> <OUTPUT_FILENAME> {{{
 download_from_gdrive() {
     file_id=$1
     file_name=$2
@@ -154,32 +157,42 @@ download_from_gdrive() {
     grep -Po 'uc-download-link" [^>]* href="\K[^"]*' | \
     sed 's/\&amp;/\&/g')
     curl -L -b /tmp/cookies \
-    "https://drive.google.com$download_link" > $file_name
+    "https://drive.google.com$download_link" > "$file_name"
 }
+# }}}
 
-# >>> conda initialize >>>
+# >>> conda initialize >>> {{{
 # !! Contents within this block are managed by 'conda init' !!
-__conda_setup="$('/home/charles/anaconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
+__conda_setup="$($HOME '/anaconda3/bin/conda' 'shell.bash' 'hook' 2> /dev/null)"
 if [ $? -eq 0 ]; then
     eval "$__conda_setup"
 else
-    if [ -f "/home/charles/anaconda3/etc/profile.d/conda.sh" ]; then
-        . "/home/charles/anaconda3/etc/profile.d/conda.sh"
+    if [ -f "$HOME/anaconda3/etc/profile.d/conda.sh" ]; then
+        . "$HOME/anaconda3/etc/profile.d/conda.sh"
     else
         export PATH="/home/charles/anaconda3/bin:$PATH"
     fi
 fi
 unset __conda_setup
-# <<< conda initialize <<<
+# <<< conda initialize <<< }}}
 
-### shortcut
+# neofetch
+# Alias
 alias CA='conda activate'
 alias CD='conda deactivate'
 alias tb='tensorboard --logdir'
-
-# neofetch
 alias sudo='sudo '
 alias sobash='source ~/.bashrc'
+alias nvbash='nvim ~/.bashrc'
+alias nv='nvim' # Neovim
+alias apt='nala' # nala, wrapper for apt-get
+alias ls='lsd -lFA' # Pretty ls
+alias cat='batcat --theme=gruvbox-dark --color=always' # batcat, wrapper for cat
+alias rm='trash' # mv to trash-bin
+alias ntfy='ntfy.exe -t '"'charles@WSL'"' ' # ntfy, wsl wrapper for ntfy in windows
+alias py='python'
+alias nvf='nvim `fzf`'
+alias fd='fdfind'
 
 # Add Poetry PATH
 # PATH=$PATH:$HOME/.local/bin
@@ -188,27 +201,68 @@ alias sobash='source ~/.bashrc'
 # Starship
 eval "$(starship init bash)"
 
-# nala
-alias apt='nala'
-
-# lsd
-alias ls='lsd -lFA'
-
-# bat
-alias cat='batcat'
-
 # zoxide
 eval "$(zoxide init bash)"
 
-# Generated for envman. Do not edit.
-[ -s "$HOME/.config/envman/load.sh" ] && source "$HOME/.config/envman/load.sh"
-
-# Activate ssh key for github
-eval "$(ssh-agent -s)"
-# eval `ssh-agent`
-# should return a pid
+# Activate ssh key for github {{{
 # ssh-keygen -t ed25519-sk -C "your_email@example.com"
 # ssh-add [your-git-key]
+# https://stackoverflow.com/a/48509425/9268330
+if [ "$(ps ax | pgrep [s]sh-agent | wc -l)" -gt 0 ]; then
+    : # do nothing
+    # echo "ssh-agent is already running"
+else
+    eval "$(ssh-agent -s)"
+    echo "ssh-agent is now loaded, PID: $SSH_AGENT_PID"
+    if [ "$(ssh-add -l | wc -l)" == "The agent has no identities." ]; then
+        ssh-add ~/.ssh/id_rsa
+        echo "ssh-agent identities loaded."
+    fi
+
+    # Don't leave extra agents around: kill it on exit. You may not want this part.
+    trap "ssh-agent -k" exit
+fi
+# }}}
 
 # fuck
-eval $(thefuck --alias fuck)
+eval "$(thefuck --alias fuck)"
+
+# nvm
+export NVM_DIR="$([ -z "${XDG_CONFIG_HOME-}" ] && printf %s "${HOME}/.nvm" || printf %s "${XDG_CONFIG_HOME}/nvm")"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh" # This loads nvm
+
+# wsl X11 forwarding
+export DISPLAY=192.168.128.1:0
+
+# neovim support
+export LC_ALL=en_US.UTF-8
+export LANG=en_US.UTF-8
+# neovim perl provider
+eval "$(perl -I ~/perl5/lib/perl5/ -Mlocal::lib)"
+# gvm & go
+[[ -s "$HOME/.gvm/scripts/gvm" ]] && source "$HOME/.gvm/scripts/gvm"
+export GOROOT_BOOTSTRAP=$GOROOT
+# gvm use go1.18.3 [--default]
+# cargo & rust
+. "$HOME/.cargo/env"
+
+# >>> juliaup initialize >>>
+
+# !! Contents within this block are managed by juliaup !!
+case ":$PATH:" in *:/home/charles/.juliaup/bin:*);; *)
+    export PATH=$HOME/.juliaup/bin${PATH:+:${PATH}};;
+esac
+
+# <<< juliaup initialize <<<
+
+# fzf config
+export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border'
+
+# Ranger syntax highlighting
+export HIGHLIGHT_STYLE=github
+
+# bob's neovim path
+export PATH=$HOME/.local/share/neovim/bin${PATH:+:${PATH}}
+
+# node path
+export PATH=$HOME/.nvm/versions/node/v16.15.1/bin/${PATH:+:${PATH}}
